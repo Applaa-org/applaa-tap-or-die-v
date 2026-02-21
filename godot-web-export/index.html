@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Tap or Die - Preview</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: manipulation;
+        }
+        
+        body {
+            font-family: 'Arial', sans-serif;
+            overflow: hidden;
+            background: #000;
+            color: white;
+            height: 100vh;
+            width: 100vw;
+        }
+        
+        #game-container {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            transition: background-color 0.1s;
+        }
+        
+        .screen {
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            padding: 20px;
+            width: 100%;
+            height: 100%;
+        }
+        
+        .screen.active {
+            display: flex;
+        }
+        
+        h1 {
+            font-size: 3rem;
+            margin-bottom: 20px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+        }
+        
+        h2 {
+            font-size: 2rem;
+            margin-bottom: 15px;
+        }
+        
+        p {
+            font-size: 1.2rem;
+            margin-bottom: 20px;
+            line-height: 1.5;
+        }
+        
+        .btn {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            font-size: 1.2rem;
+            margin: 10px;
+            cursor: pointer;
+            border-radius: 8px;
+            transition: transform 0.1s, background 0.2s;
+            min-width: 200px;
+        }
+        
+        .btn:hover {
+            background: #45a049;
+            transform: scale(1.05);
+        }
+        
+        .btn:active {
+            transform: scale(0.95);
+        }
+        
+        .btn-secondary {
+            background: #2196F3;
+        }
+        
+        .btn-danger {
+            background: #f44336;
+        }
+        
+        input[type="text"] {
+            padding: 10px;
+            font-size: 1.2rem;
+            margin-bottom: 20px;
+            border-radius: 5px;
+            border: none;
+            width: 250px;
+            text-align: center;
+        }
+        
+        #game-area {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+        }
+        
+        #instruction {
+            font-size: 4rem;
+            font-weight: bold;
+            text-shadow: 3px 3px 6px rgba(0,0,0,0.7);
+            z-index: 10;
+        }
+        
+        #score-display {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            font-size: 1.5rem;
+            background: rgba(0,0,0,0.5);
+            padding: 10px 20px;
+            border-radius: 10px;
+        }
+        
+        #high-score-display {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            font-size: 1.2rem;
+            background: rgba(0,0,0,0.5);
+            padding: 10px 20px;
+            border-radius: 10px;
+        }
+        
+        .red-bg { background-color: #cc3333; }
+        .green-bg { background-color: #33cc33; }
+        .dark-bg { background-color: #1a1a1a; }
+        .gold-bg { background-color: #ffd700; color: black; }
+    </style>
+</head>
+<body>
+    <div id="game-container">
+        <!-- Start Screen -->
+        <div id="start-screen" class="screen active dark-bg">
+            <h1>TAP OR DIE</h1>
+            <div id="start-high-score" style="font-size: 1.5rem; margin-bottom: 20px;">High Score: 0</div>
+            <input type="text" id="player-name" placeholder="Enter Name" maxlength="15">
+            <p>Wait for GREEN, then TAP!<br>Don't tap on RED!</p>
+            <button class="btn" onclick="startGame()">Start Game</button>
+            <button class="btn btn-danger" onclick="closeGame()">Close</button>
+        </div>
+        
+        <!-- Game Screen -->
+        <div id="game-screen" class="screen">
+            <div id="game-area">
+                <div id="instruction">WAIT...</div>
+            </div>
+            <div id="score-display">Score: 0 / 20</div>
+            <div id="high-score-display">Best: 0</div>
+        </div>
+        
+        <!-- Game Over Screen -->
+        <div id="gameover-screen" class="screen dark-bg">
+            <h1 style="color: #ff4444;">DEFEAT</h1>
+            <h2 id="final-score">Score: 0</h2>
+            <div id="gameover-high-score" style="font-size: 1.2rem; margin-bottom: 20px;">High Score: 0</div>
+            <button class="btn" onclick="restartGame()">Restart Level</button>
+            <button class="btn btn-secondary" onclick="goToMenu()">Main Menu</button>
+            <button class="btn btn-danger" onclick="closeGame()">Close</button>
+        </div>
+        
+        <!-- Victory Screen -->
+        <div id="victory-screen" class="screen gold-bg">
+            <h1>VICTORY!</h1>
+            <h2 id="victory-score">Final Score: 20</h2>
+            <button class="btn" onclick="restartGame()">Play Again</button>
+            <button class="btn btn-secondary" onclick="goToMenu()">Main Menu</button>
+            <button class="btn btn-danger" onclick="closeGame()">Close</button>
+        </div>
+    </div>
+
+    <script>
+        // Game State
+        let gameState = 'MENU'; // MENU, WAITING, ACTIVE, GAMEOVER, VICTORY
+        let score = 0;
+        let highScore = 0;
+        let playerName = 'Player';
+        let timer = null;
+        let reactionTimer = null;
+        const VICTORY_TARGET = 20;
+        const GAME_ID = 'tap-or-die';
+        
+        // DOM Elements
+        const screens = {
+            start: document.getElementById('start-screen'),
+            game: document.getElementById('game-screen'),
+            gameover: document.getElementById('gameover-screen'),
+            victory: document.getElementById('victory-screen')
+        };
+        
+        const gameArea = document.getElementById('game-area');
+        const instruction = document.getElementById('instruction');
+        const scoreDisplay = document.getElementById('score-display');
+        const highScoreDisplay = document.getElementById('high-score-display');
+        const playerNameInput = document.getElementById('player-name');
+        
+        // STEP 1: Initialize high score display to 0 immediately
+        function initHighScoreDisplay() {
+            document.getElementById('start-high-score').textContent = 'High Score: 0';
+            document.getElementById('start-high-score').style.display = 'block';
+            highScoreDisplay.textContent = 'Best: 0';
+            highScoreDisplay.style.display = 'block';
+        }
+        
+        // Load game data from localStorage
+        function loadGameData() {
+            window.parent.postMessage({ type: 'applaa-game-load-data', gameId: GAME_ID }, '*');
+        }
+        
+        // Listen for storage messages
+        window.addEventListener('message', (event) => {
+            if (event.data.type === 'applaa-game-data-loaded') {
+                const data = event.data.data;
+                if (data) {
+                    // STEP 3: Update display with loaded data
+                    if (data.highScore !== undefined) {
+                        highScore = data.highScore;
+                        document.getElementById('start-high-score').textContent = 'High Score: ' + highScore.toLocaleString();
+                        highScoreDisplay.textContent = 'Best: ' + highScore.toLocaleString();
+                    }
+                    if (data.lastPlayerName) {
+                        playerName = data.lastPlayerName;
+                        playerNameInput.value = playerName;
+                    }
+                }
+            }
+        });
+        
+        // Save score
+        function saveScore() {
+            window.parent.postMessage({
+                type: 'applaa-game-save-score',
+                gameId: GAME_ID,
+                playerName: playerName,
+                score: score
+            }, '*');
+        }
+        
+        // Screen Management
+        function showScreen(screenName) {
+            Object.values(screens).forEach(s => s.classList.remove('active'));
+            screens[screenName].classList.add('active');
+        }
+        
+        // Game Functions
+        function startGame() {
+            playerName = playerNameInput.value || 'Player';
+            score = 0;
+            gameState = 'WAITING';
+            updateScore();
+            showScreen('game');
+            startRound();
+        }
+        
+        function startRound() {
+            gameState = 'WAITING';
+            gameArea.className = 'red-bg';
+            instruction.textContent = 'WAIT...';
+            instruction.style.color = 'white';
+            
+            // Random delay between 0.5 and 2 seconds
+            const delay = Math.random() * 1500 + 500; // 500ms to 2000ms
+
+            clearTimeout(timer);
+            timer = setTimeout(() => {
+                if (gameState === 'WAITING') {
+                    activateGreen();
+                }
+            }, delay);
+        }
+
+        function activateGreen() {
+            gameState = 'ACTIVE';
+            gameArea.className = 'green-bg';
+            instruction.textContent = 'TAP NOW!';
+            instruction.style.color = 'black';
+
+            // Time limit to react (1 second)
+            clearTimeout(reactionTimer);
+            reactionTimer = setTimeout(() => {
+                if (gameState === 'ACTIVE') {
+                    gameOver("Too Slow!");
+                }
+            }, 1000);
+        }
+
+        function handleInput(e) {
+            // Prevent default touch behavior (zooming/scrolling)
+            if (e && e.type === 'touchstart') {
+                e.preventDefault();
+            }
+            // Prevent spacebar scrolling
+            if (e && e.code === 'Space') {
+                e.preventDefault();
+            }
+
+            if (gameState === 'ACTIVE') {
+                // Success!
+                score++;
+                updateScore();
+                clearTimeout(reactionTimer);
+                
+                if (score >= VICTORY_TARGET) {
+                    victory();
+                } else {
+                    startRound();
+                }
+            } else if (gameState === 'WAITING') {
+                // Fail - Too early
+                gameOver("Too Early!");
+            }
+        }
+
+        function updateScore() {
+            scoreDisplay.textContent = `Score: ${score} / ${VICTORY_TARGET}`;
+        }
+
+        function gameOver(reason) {
+            gameState = 'GAMEOVER';
+            clearTimeout(timer);
+            clearTimeout(reactionTimer);
+            
+            document.getElementById('final-score').textContent = `Score: ${score} (${reason})`;
+            
+            // Update High Score Display logic
+            const gameOverHighScoreEl = document.getElementById('gameover-high-score');
+            if (score > highScore) {
+                highScore = score;
+                gameOverHighScoreEl.textContent = `New High Score: ${highScore}!`;
+                gameOverHighScoreEl.style.color = '#ffd700';
+            } else {
+                gameOverHighScoreEl.textContent = `High Score: ${highScore}`;
+                gameOverHighScoreEl.style.color = 'white';
+            }
+
+            saveScore();
+            showScreen('gameover');
+        }
+
+        function victory() {
+            gameState = 'VICTORY';
+            clearTimeout(timer);
+            clearTimeout(reactionTimer);
+            
+            document.getElementById('victory-score').textContent = `Final Score: ${score}`;
+            
+            if (score > highScore) {
+                highScore = score;
+            }
+            
+            saveScore();
+            showScreen('victory');
+        }
+
+        function restartGame() {
+            startGame();
+        }
+
+        function goToMenu() {
+            gameState = 'MENU';
+            showScreen('start');
+            // Reload high score to ensure it's fresh
+            loadGameData();
+        }
+
+        function closeGame() {
+            // In a web preview, we can't always close the window via script
+            // We'll simulate a quit by going to menu or alerting
+            alert("Game Closed. (In a standalone build, this would exit the application)");
+            goToMenu();
+        }
+
+        // Input Listeners
+        gameArea.addEventListener('mousedown', handleInput);
+        gameArea.addEventListener('touchstart', handleInput, { passive: false });
+        
+        document.addEventListener('keydown', (e) => {
+            if (e.code === 'Space') {
+                if (gameState === 'WAITING' || gameState === 'ACTIVE') {
+                    handleInput(e);
+                }
+            }
+        });
+
+        // Initialize on load
+        window.addEventListener('DOMContentLoaded', () => {
+            initHighScoreDisplay();
+            loadGameData();
+        });
+    </script>
+</body>
+</html>

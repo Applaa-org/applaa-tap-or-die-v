@@ -1,0 +1,33 @@
+{
+  "game": {
+    "name": "Tap or Die",
+    "type": "2D",
+    "genre": "reflex",
+    "description": "A high-speed reflex game. Wait for the green signal and tap immediately. Don't tap on red!"
+  },
+  "settings": {
+    "window": {"width": 800, "height": 600},
+    "physics": {"gravity": 0}
+  },
+  "player": {
+    "name": "Player",
+    "health": 1,
+    "speed": 0,
+    "abilities": ["tap"]
+  },
+  "entities": [],
+  "levels": [
+    {
+      "name": "Endless Mode",
+      "background": "dynamic",
+      "obstacles": []
+    }
+  ],
+  "logic": {
+    "winCondition": "reach_score_20",
+    "loseCondition": "tap_too_early_or_too_late",
+    "scoring": {
+      "pointsPerSuccess": 1
+    }
+  }
+}
